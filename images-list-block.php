@@ -39,3 +39,16 @@ function images_list_block_register_block()
 }
 
 add_action('init', 'images_list_block_register_block');
+
+function images_list_block_frontend_scripts()
+{
+	wp_enqueue_script(
+		'image-list-block-hovers',
+		plugins_url('src/plugins/list-items.js', __FILE__),
+		array(),
+		filemtime(plugin_dir_path(__FILE__) . 'src/plugins/list-items.js'),
+		true
+	);
+}
+
+add_action('wp_enqueue_scripts', 'images_list_block_frontend_scripts');

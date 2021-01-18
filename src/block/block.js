@@ -5,29 +5,42 @@
  * Simple block, renders and saves the same content without any interactivity.
  */
 
-import { registerBlockType } from '@wordpress/blocks'
-import { __ } from '@wordpress/i18n'
+import {_get as get} from 'lodash'
+
+import { registerBlockType } from "@wordpress/blocks";
+import { __ } from "@wordpress/i18n";
 import {
   RichText,
   InspectorControls,
   MediaUpload,
   MediaUploadCheck,
-} from '@wordpress/block-editor'
+  useBlockProps
+} from "@wordpress/block-editor";
 
-import { ToggleControl, PanelBody, PanelRow, SelectControl, Button } from '@wordpress/components'
+import {
+  ToggleControl,
+  PanelBody,
+  PanelRow,
+  SelectControl,
+  TextControl,
+  IconButton,
+  Button,
+} from "@wordpress/components";
 
-import { useState } from '@wordpress/element'
+import { useState, Fragment } from "@wordpress/element";
 
 //  Import CSS.
 import "./editor.scss";
 import "./style.scss";
 
+const ALLOWED_MEDIA_TYPES = ["audio"];
+
 const selectOptions = [
-  { value: null, label: 'Select an Option', disabled: true },
-  { value: 'a', label: 'Dots' },
-  { value: 'b', label: 'Numbers' },
-  { value: 'c', label: 'None' },
-]
+  { value: null, label: "Select an Option", disabled: true },
+  { value: "a", label: "Dots" },
+  { value: "b", label: "Numbers" },
+  { value: "c", label: "None" },
+];
 
 registerBlockType("images-list-block/example", {
   // Block name. Block names must be string that contains a namespace prefix. Example: my-plugin/my-custom-block.
@@ -40,138 +53,264 @@ registerBlockType("images-list-block/example", {
     __("Gutenberg Plugin Boilerplate"),
   ],
   attributes: {
+    defaultImageId: {
+     type: 'number',
+     default: 0
+    },
+    defaultImageUrl: {
+      type: 'string',
+      default: ''
+    },
     blockListItems: {
-      source: 'query',
+      type: "array",
       default: [],
-      selector: '.item',
-      query: {
-        blockListContent: {
-          type: 'string',
-          source: 'html',
-          selector: '.images-list-block__text'
-        },
-        index: {
-          type: 'number',
-          source: 'attribute',
-          attribute: 'data-index'
-        }
-      }
-    }
+      selector: ".item",
+    },
   },
-  edit: ({ attributes, setAttributes, ...props }) => {
+  edit: ({setAttributes, attributes, ...props}) => {
+    const [defaultImage, setDefaultImage] = useState();
+    const blockProps = useBlockProps();
 
-    const _cloneArray = (arr) => {
-      if (Array.isArray(arr)) {
-        for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) {
-          arr2[i] = arr[i];
-        }
-        return arr2;
-      } else {
-        return Array.from(arr);
-      }
+    const handleAddPairs = () => {
+      console.log('adding pairs');
+      const blockListItems = [...attributes.blockListItems];
+      blockListItems.push({
+        pairText: '',
+        imageUrl: ''
+      });
+      setAttributes({ blockListItems });
+    };
+
+    const handleRemovePairs = (index) => {
+      const blockListItems = [...attributes.blockListItems];
+      blockListItems.splice(index, 1);
+      setAttributes({ blockListItems });
+    };
+
+    const handlePairsTextChange = (pairText, index) => {
+      console.log('changing text inside pair input')
+      const blockListItems = [...attributes.blockListItems];
+      blockListItems[index].pairText = pairText;
+      setAttributes({ blockListItems });
+    };
+
+    const handleUpdatePairImage = (img, index) => {
+      console.log('handleUpdatePairImage ', img, index);
+      const blockListItems = [...attributes.blockListItems];
+      blockListItems[index].imageUrl = img.url;
+      setAttributes({blockListItems});
+      console.log('after pair image update: ', attributes)
     }
 
-    const BlockList = attributes.blockListItems.sort(function (a, b) {
-      return a.index - b.index;
-    }).map(function (item) {
-      return (
-        <div className="item">
-          <RichText
-            tagName='h1'
-            placeholder='Here the title goes...'
-            value={item.title}
-            autoFocus={true}
-            onChange={
-              (value) => {
-                const newObject = Object.assign({}, item, {
-                  title: value
-                });
-                return props.setAttributes({
-                  blockListItems: [].concat(_cloneArray(props.attributes.blockListItems.filter(function (itemFilter) {
-                    return itemFilter.index != item.index;
-                  })), [newObject])
-                });
+    const handleDefaultImage = (media) => {
+      setAttributes({
+        defaultImageId: media.id,
+        defaultImageUrl: media.url
+      })
+    }
+
+    const showImage = (e) => {
+      console.log(e);
+    }
+    
+
+    let pairsDisplay, renderListPairs;
+
+    // const renderListPairs = (foo) => {
+    //   if (foo.length) {
+    //     return(
+    //       foo.map(
+    //         (pair, index) => {
+    //           return (
+    //             <Fragment key={index}>
+    //               <TextControl
+    //                 className="grf__location-pairText"
+    //                 placeholder="Enter pair text"
+    //                 value={foo[index].pairText}
+    //                 onChange={(pairText) => handlePairsTextChange(pairText, index)}
+    //               />
+    //               {
+    //                 pair.imageUrl != '' && (
+    //                   <img src={pair.imageUrl} key={index} alt=""/>
+    //                 )
+    //               }
+    //               <MediaUploadCheck>
+    //                 <MediaUpload
+    //                   onSelect={(img) => handleUpdatePairImage(img, index)}
+    //                   allowedTypes={ALLOWED_MEDIA_TYPES}
+    //                   value={index}
+    //                   render={({ open }) => (
+    //                     <Button onClick={open}>Open Media Library</Button>
+    //                   )}
+    //                 />
+    //               </MediaUploadCheck>
+    //               <IconButton
+    //                 className="grf__remove-location-pairText"
+    //                 icon="no-alt"
+    //                 label="Delete location"
+    //                 onClick={() => handleRemovePairs(index)}
+    //               />
+    //             </Fragment>
+    //           );
+    //         }
+    //       )
+    //     )
+    //   }
+    // }
+
+    if (attributes.blockListItems.length) {
+      renderListPairs = attributes.blockListItems.map(
+        (pair, index) => {
+          return (
+            <Fragment key={index}>
+              <PanelRow>
+                <TextControl
+                  className="grf__location-pairText"
+                  placeholder="Enter pair text"
+                  value={attributes.blockListItems[index].pairText}
+                  onChange={(pairText) => handlePairsTextChange(pairText, index)}
+                />
+              </PanelRow>
+              <PanelRow>
+              {
+                pair.imageUrl != '' && (
+                  <img src={pair.imageUrl} key={index} alt=""/>
+                )
               }
+              </PanelRow>
+              <PanelRow>
+                <MediaUploadCheck>
+                  <MediaUpload
+                    onSelect={(img) => handleUpdatePairImage(img, index)}
+                    allowedTypes={ALLOWED_MEDIA_TYPES}
+                    value={index}
+                    render={({ open }) => (
+                      <Button onClick={open} isPrimary>{__("Add Image")}</Button>
+                    )}
+                  />
+                </MediaUploadCheck>
+                <IconButton
+                  className="grf__remove-location-pairText"
+                  icon="no-alt"
+                  label="Delete location"
+                  onClick={() => handleRemovePairs(index)}
+                  isDestructive
+                />
+              </PanelRow>
+            </Fragment>
+          );
+        }
+      );
+
+      pairsDisplay = attributes.blockListItems.map(
+        (pair, index) => (
+          <span className='images-list-block__content-item js-images-list-item' data-index={index} key={index} onMouseEnter={showImage}>{pair.pairText}</span>
+        )
+      );
+    }
+
+    
+    return [
+      <InspectorControls key="1">
+        <PanelBody title={__("Block List Items")}>
+          <PanelRow>
+            <div>
+              {attributes.defaultImageUrl != '' ? <img src={attributes.defaultImageUrl} /> : ''}
+            </div>
+          </PanelRow>
+          <PanelRow>
+            <MediaUploadCheck>
+              <MediaUpload
+                onSelect={handleDefaultImage}
+                allowedTypes={ALLOWED_MEDIA_TYPES}
+                value={attributes.defaultImageId}
+                render={({ open }) => (
+                  <Button isPrimary onClick={open}>{__("Add Default Image")}</Button>
+                )}
+              />
+            </MediaUploadCheck>
+          </PanelRow>
+
+          <PanelRow>
+            <select onChange={console.log("select changed")}>
+              {selectOptions.map(({ label, value, disabled }) => {
+                return (
+                  <option value={value} disabled={disabled}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </PanelRow>
+          
+          {renderListPairs}
+          
+          <PanelRow>
+            <Button isDefault onClick={handleAddPairs}>
+              {__("Add Pairs")}
+            </Button>
+          </PanelRow>
+        </PanelBody>
+      </InspectorControls>,
+      <div key="2" { ...blockProps } className={props.className}>
+        <h2>Block</h2>
+        
+        <div className="images-list-block">
+          <div className="images-list-block__content">
+            {pairsDisplay}
+          </div>
+          <div className="images-list-block__media">
+            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} />}
+            {
+              attributes.blockListItems.map(
+                (pair, index) => (
+                  <img 
+                    src={pair.imageUrl}
+                    key={`${pair.imageUrl}-${index}`}
+                    className="images-list-block__media-item js-images-list-item"
+                    data-list-index={index}
+                    alt=""
+                  />
+                )
+              )
             }
-          />
+          </div>
         </div>
-      )
-    });
-    console.log(BlockList)
-    return (
-      <div className={props.className}>
-        <div className="item-list">
-          {BlockList.map((el) => {
-            return el
-          })}
-          <Button className="btn add-row" onClick={() => {
-            return setAttributes({
-              blockListItems: [].concat(_cloneArray(props.attributes.blockListItems), [{
-                index: props.attributes.blockListItems.length,
-                blockListContent: ""
-              }])
-            });
-          }}>Add Row</Button>
-        </div>
-
-      </div>
-    )
-
-    // return (
-    //   <div className="cta-container">
-    //     <InspectorControls>
-    //       <PanelBody
-    //         title="Block Settings"
-    //         initialOpen={true}
-    //       >
-    //         <PanelRow>
-    //           <SelectControl
-    //             value={selection}
-    //             onChange={setSelection}
-    //             options={selectOptions}
-    //           />
-    //         </PanelRow>
-    //         <PanelRow>
-    //           <Button
-    //             isPrimary
-    //             onClick={() => {
-    //               setAttributes(blockListItems)
-    //             }}
-    //           >
-    //             {__('+ Add Item')}
-    //           </Button>
-    //         </PanelRow>
-    //       </PanelBody>
-    //     </InspectorControls>
-    //     <div className="images-list-block">
-    //       <div className="images-list-block__text">
-    //         <ul>
-    //           <li>Item 1</li>
-    //           <li>Item 2</li>
-    //           <li>Item 3</li>
-    //         </ul>
-    //       </div>
-    //       <div className="images-list-block__media">
-    //         <img src="https://via.placeholder.com/640x440&text=Image" alt="" />
-    //       </div>
-    //     </div>
-    //   </div>
-    // )
+      </div>,
+    ];
   },
-  save: ({ attributes }) => {
-    const { title, body } = attributes;
+  save: ({attributes, ...props}) => {
+    const blockProps = useBlockProps.save();
 
-    return (
-      <div className="images-list-block">
-        <div className="images-list-block__text">
-          <ul>
-            <li>Item 1</li>
-            <li>Item 2</li>
-            <li>Item 3</li>
-          </ul>
-        </div>
-        <div className="images-list-block__media">
-          <img src="https://via.placeholder.com/640x440&text=Image" alt="" />
+    let pairsDisplay = attributes.blockListItems.map(
+      (pair, index) => (
+        <span className='images-list-block__content-item js-images-list-item' data-list-index={index} key={index}>{pair.pairText}</span>
+      )
+    );
+    return(
+      <div key="2" { ...blockProps } className={props.className}>
+        <h2>Block</h2>
+        
+        <div className="images-list-block">
+          <div className="images-list-block__content">
+            {pairsDisplay}
+          </div>
+          <div className="images-list-block__media">
+            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} />}
+            {
+              attributes.blockListItems.map(
+                (pair, index) => (
+                  <img
+                    src={pair.imageUrl}
+                    key={`${pair.imageUrl}-${index}`}
+                    className="images-list-block__media-item"
+                    data-list-index={index}
+                    alt=""
+                  />
+                )
+              )
+            }
+          </div>
         </div>
       </div>
     )
