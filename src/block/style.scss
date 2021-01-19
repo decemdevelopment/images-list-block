@@ -9,21 +9,31 @@
 
 .images-list-block__media {
   width: 50%;
+  position: relative;
+}
+
+.images-list-block__content {
+  width: 50%;
 }
 
 .images-list-block__content-item {
-  display: block;
 }
 
 .images-list-block__media-item {
-  position: relative;
-  display: none;
+  position: absolute;
+  width: 100%;
+  top: 0;
+  left: 0;
+  visibility: hidden;
   opacity: 0;
   transition: 0.3s ease-in;
 }
 
 .images-list-block__media-item--active {
-  display: block;
+  visibility: visible;
   opacity: 1;
   z-index: 1;
+}
+
+.images-list-block__media-default-image {
 }

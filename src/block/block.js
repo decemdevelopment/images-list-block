@@ -5,8 +5,6 @@
  * Simple block, renders and saves the same content without any interactivity.
  */
 
-import {_get as get} from 'lodash'
-
 import { registerBlockType } from "@wordpress/blocks";
 import { __ } from "@wordpress/i18n";
 import {
@@ -18,10 +16,8 @@ import {
 } from "@wordpress/block-editor";
 
 import {
-  ToggleControl,
   PanelBody,
   PanelRow,
-  SelectControl,
   TextControl,
   IconButton,
   Button,
@@ -33,13 +29,18 @@ import { useState, Fragment } from "@wordpress/element";
 import "./editor.scss";
 import "./style.scss";
 
-const ALLOWED_MEDIA_TYPES = ["audio"];
+const UL = ({children, ...props}) => <ul {...props}>{children}</ul>;
+const OL = ({children, ...props}) => <ol {...props}>{children}</ol>;
+const LI = ({children, ...props}) => <li {...props}>{children}</li>;
+const DIV = ({children, ...props}) => <div {...props}>{children}</div>;
+
+const ALLOWED_MEDIA_TYPES = ["image"];
 
 const selectOptions = [
   { value: null, label: "Select an Option", disabled: true },
-  { value: "a", label: "Dots" },
-  { value: "b", label: "Numbers" },
-  { value: "c", label: "None" },
+  { value: "dots", label: "Dots" },
+  { value: "numbers", label: "Numbers" },
+  { value: "none", label: "None" },
 ];
 
 registerBlockType("images-list-block/example", {
@@ -66,17 +67,33 @@ registerBlockType("images-list-block/example", {
       default: [],
       selector: ".item",
     },
+    blockListType: {
+      type: 'string',
+      default: 'dots'
+    }
   },
   edit: ({setAttributes, attributes, ...props}) => {
-    const [defaultImage, setDefaultImage] = useState();
+    const [listStyle, setListStyle] = useState();
     const blockProps = useBlockProps();
 
+    const listTypeWrapper = {
+      'dots': UL,
+      'numbers': OL,
+      'none': DIV,
+    };
+    
+    const listTypeItem = {
+      'dots': LI,
+      'numbers': LI,
+      'none': DIV,
+    };
+
     const handleAddPairs = () => {
-      console.log('adding pairs');
       const blockListItems = [...attributes.blockListItems];
       blockListItems.push({
         pairText: '',
-        imageUrl: ''
+        imageUrl: '',
+        imageAlt: ''
       });
       setAttributes({ blockListItems });
     };
@@ -88,93 +105,57 @@ registerBlockType("images-list-block/example", {
     };
 
     const handlePairsTextChange = (pairText, index) => {
-      console.log('changing text inside pair input')
       const blockListItems = [...attributes.blockListItems];
       blockListItems[index].pairText = pairText;
       setAttributes({ blockListItems });
     };
 
     const handleUpdatePairImage = (img, index) => {
-      console.log('handleUpdatePairImage ', img, index);
       const blockListItems = [...attributes.blockListItems];
       blockListItems[index].imageUrl = img.url;
+      blockListItems[index].imageAlt = img.alt;
       setAttributes({blockListItems});
-      console.log('after pair image update: ', attributes)
     }
 
     const handleDefaultImage = (media) => {
       setAttributes({
         defaultImageId: media.id,
-        defaultImageUrl: media.url
+        defaultImageUrl: media.url,
+        defaultImageAlt: media.alt
       })
     }
 
-    const showImage = (e) => {
-      console.log(e);
+    const handleSelect = (e) => {
+      setAttributes({blockListType: e.target.value})
     }
-    
 
-    let pairsDisplay, renderListPairs;
+    let renderListPairs;
 
-    // const renderListPairs = (foo) => {
-    //   if (foo.length) {
-    //     return(
-    //       foo.map(
-    //         (pair, index) => {
-    //           return (
-    //             <Fragment key={index}>
-    //               <TextControl
-    //                 className="grf__location-pairText"
-    //                 placeholder="Enter pair text"
-    //                 value={foo[index].pairText}
-    //                 onChange={(pairText) => handlePairsTextChange(pairText, index)}
-    //               />
-    //               {
-    //                 pair.imageUrl != '' && (
-    //                   <img src={pair.imageUrl} key={index} alt=""/>
-    //                 )
-    //               }
-    //               <MediaUploadCheck>
-    //                 <MediaUpload
-    //                   onSelect={(img) => handleUpdatePairImage(img, index)}
-    //                   allowedTypes={ALLOWED_MEDIA_TYPES}
-    //                   value={index}
-    //                   render={({ open }) => (
-    //                     <Button onClick={open}>Open Media Library</Button>
-    //                   )}
-    //                 />
-    //               </MediaUploadCheck>
-    //               <IconButton
-    //                 className="grf__remove-location-pairText"
-    //                 icon="no-alt"
-    //                 label="Delete location"
-    //                 onClick={() => handleRemovePairs(index)}
-    //               />
-    //             </Fragment>
-    //           );
-    //         }
-    //       )
-    //     )
-    //   }
-    // }
+    const listType = attributes.blockListType;
+
+    const ListWrapper = listTypeWrapper[listType];
+    const ListItem = listTypeItem[listType];
 
     if (attributes.blockListItems.length) {
       renderListPairs = attributes.blockListItems.map(
         (pair, index) => {
           return (
-            <Fragment key={index}>
+            <div key={index} style={{marginBottom: '20px', paddingTop: '20px', borderTop: '1px solid #007cba'}}>
               <PanelRow>
-                <TextControl
-                  className="grf__location-pairText"
-                  placeholder="Enter pair text"
-                  value={attributes.blockListItems[index].pairText}
-                  onChange={(pairText) => handlePairsTextChange(pairText, index)}
-                />
+                <div>
+                  <label>List Item Text:</label>
+                  <TextControl
+                    className="grf__location-pairText"
+                    placeholder="Enter pair text"
+                    value={attributes.blockListItems[index].pairText}
+                    onChange={(pairText) => handlePairsTextChange(pairText, index)}
+                  />
+                </div>
               </PanelRow>
               <PanelRow>
               {
                 pair.imageUrl != '' && (
-                  <img src={pair.imageUrl} key={index} alt=""/>
+                  <img src={pair.imageUrl} key={index} alt={pair.imageAlt}/>
                 )
               }
               </PanelRow>
@@ -197,15 +178,9 @@ registerBlockType("images-list-block/example", {
                   isDestructive
                 />
               </PanelRow>
-            </Fragment>
+            </div>
           );
         }
-      );
-
-      pairsDisplay = attributes.blockListItems.map(
-        (pair, index) => (
-          <span className='images-list-block__content-item js-images-list-item' data-index={index} key={index} onMouseEnter={showImage}>{pair.pairText}</span>
-        )
       );
     }
 
@@ -232,15 +207,18 @@ registerBlockType("images-list-block/example", {
           </PanelRow>
 
           <PanelRow>
-            <select onChange={console.log("select changed")}>
-              {selectOptions.map(({ label, value, disabled }) => {
-                return (
-                  <option value={value} disabled={disabled}>
-                    {label}
-                  </option>
-                );
-              })}
-            </select>
+            <div className="images-list-block-select">
+              <label>List style:</label>
+              <select onChange={handleSelect}>
+                {selectOptions.map(({ label, value, disabled }) => {
+                  return (
+                    <option value={value} key={`${label}-${value}`} disabled={disabled}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </PanelRow>
           
           {renderListPairs}
@@ -253,14 +231,18 @@ registerBlockType("images-list-block/example", {
         </PanelBody>
       </InspectorControls>,
       <div key="2" { ...blockProps } className={props.className}>
-        <h2>Block</h2>
-        
         <div className="images-list-block">
-          <div className="images-list-block__content">
-            {pairsDisplay}
-          </div>
+          <ListWrapper className="images-list-block__content">
+            {
+              attributes.blockListItems.map(
+                (pair, index) => (
+                  <ListItem className='images-list-block__content-item js-images-list-item' data-list-index={index} key={`${pair}-${index}`}>{pair.pairText}</ListItem>
+                )
+              )
+            }
+          </ListWrapper>
           <div className="images-list-block__media">
-            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} />}
+            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} alt={attributes.defaultImageAlt} />}
             {
               attributes.blockListItems.map(
                 (pair, index) => (
@@ -269,7 +251,7 @@ registerBlockType("images-list-block/example", {
                     key={`${pair.imageUrl}-${index}`}
                     className="images-list-block__media-item js-images-list-item"
                     data-list-index={index}
-                    alt=""
+                    alt={pair.imageAlt}
                   />
                 )
               )
@@ -282,21 +264,37 @@ registerBlockType("images-list-block/example", {
   save: ({attributes, ...props}) => {
     const blockProps = useBlockProps.save();
 
-    let pairsDisplay = attributes.blockListItems.map(
-      (pair, index) => (
-        <span className='images-list-block__content-item js-images-list-item' data-list-index={index} key={index}>{pair.pairText}</span>
-      )
-    );
+    const listType = attributes.blockListType;
+
+    const listTypeWrapper = {
+      'dots': UL,
+      'numbers': OL,
+      'none': DIV,
+    };
+    
+    const listTypeItem = {
+      'dots': LI,
+      'numbers': LI,
+      'none': DIV,
+    };
+
+    const ListWrapper = listTypeWrapper[listType];
+    const ListItem = listTypeItem[listType];
+    
     return(
       <div key="2" { ...blockProps } className={props.className}>
-        <h2>Block</h2>
-        
         <div className="images-list-block">
-          <div className="images-list-block__content">
-            {pairsDisplay}
-          </div>
+          <ListWrapper className="images-list-block__content">
+            {
+              attributes.blockListItems.map(
+                (pair, index) => (
+                  <ListItem className='images-list-block__content-item js-images-list-item' data-list-index={index} key={`${pair}-${index}`}>{pair.pairText}</ListItem>
+                )
+              )
+            }
+          </ListWrapper>
           <div className="images-list-block__media">
-            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} />}
+            {attributes.defaultImageUrl && <img src={attributes.defaultImageUrl} alt={attributes.defaultImageAlt} />}
             {
               attributes.blockListItems.map(
                 (pair, index) => (
@@ -304,8 +302,8 @@ registerBlockType("images-list-block/example", {
                     src={pair.imageUrl}
                     key={`${pair.imageUrl}-${index}`}
                     className="images-list-block__media-item"
-                    data-list-index={index}
-                    alt=""
+                    data-list-image-index={index}
+                    alt={pair.imageAlt}
                   />
                 )
               )

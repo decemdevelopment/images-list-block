@@ -5,3 +5,10 @@
  * which makes it higher in priority.
  */
 
+.images-list-block-select {
+  padding-bottom: 20px;
+
+  select {
+    width: 100%;
+  }
+}
